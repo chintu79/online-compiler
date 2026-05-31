@@ -76,7 +76,7 @@ function App() {
       const delta = e.detail;
       setSettings((prev) => ({
         ...prev,
-        fontSize: Math.max(14, Math.min(16, prev.fontSize + delta)),
+        fontSize: Math.max(10, Math.min(16, prev.fontSize + delta)),
       }));
     };
     window.addEventListener('change-font-size', handler);

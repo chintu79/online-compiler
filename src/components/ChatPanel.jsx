@@ -79,7 +79,7 @@ function ChatPanel({ isOpen, onClose }) {
         // Ignore own messages (we already show them locally)
         if (data._cid === clientIdRef.current) return;
         if (data.user && data.payload) {
-          addLog('DEBUG', 'trace_rx', `{ "user": "${data.user}", "event": "msg_recv", "payload": ${JSON.stringify(data.payload)} }`);
+          addLog('DEBUG', 'trace_rx', `{ "user": "${data.user}", "payload": ${JSON.stringify(data.payload)} }`);
         }
       } catch {
         addLog('WARN', 'raw_packet', payload.toString());

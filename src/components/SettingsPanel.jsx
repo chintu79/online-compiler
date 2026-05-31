@@ -42,7 +42,7 @@ function SettingsPanel({ settings, onSettingsChange, isOpen, onClose }) {
             <div className="settings-row">
               <button
                 className="btn-icon"
-                onClick={() => update('fontSize', Math.max(14, settings.fontSize - 1))}
+                onClick={() => update('fontSize', Math.max(10, settings.fontSize - 1))}
                 title="Decrease Font Size"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12" /></svg>
@@ -57,7 +57,7 @@ function SettingsPanel({ settings, onSettingsChange, isOpen, onClose }) {
               </button>
               <input
                 type="range"
-                min="14"
+                min="10"
                 max="16"
                 value={settings.fontSize}
                 onChange={(e) => update('fontSize', Number(e.target.value))}
