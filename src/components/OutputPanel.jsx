@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 
-function OutputPanel({ output, stdin, onStdinChange, executionTime, isRunning, onClear, onOpenChat }) {
+function OutputPanel({ output, stdin, onStdinChange, executionTime, isRunning, onClear }) {
   const outputEndRef = useRef(null);
   const panelRef = useRef(null);
   const resizeHandleRef = useRef(null);
@@ -116,7 +116,7 @@ function OutputPanel({ output, stdin, onStdinChange, executionTime, isRunning, o
                   <polyline points="4 17 10 11 4 5" />
                   <line x1="12" y1="19" x2="20" y2="19" />
                 </svg>
-                <a href="#" className="defcursor" onClick={(e) => { e.preventDefault(); onOpenChat(); }}>Input</a>
+                <span>Input</span>
               </div>
             </div>
             <textarea

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 
-function CodeEditor({ language, code, onChange, editorRef, settings }) {
+function CodeEditor({ language, code, onChange, editorRef, settings, onOpenChat }) {
   // Update editor options when settings change
   useEffect(() => {
     if (editorRef.current) {
@@ -81,7 +81,14 @@ function CodeEditor({ language, code, onChange, editorRef, settings }) {
         </div>
         <div className="editor-info">
           <span className="font-size-indicator" title="Font Size">{settings.fontSize}px</span>
-          <span className="lang-badge">{language.icon}</span>
+          <button
+            type="button"
+            className="lang-badge lang-badge-button"
+            onClick={onOpenChat}
+            aria-label={`Open chat for ${language.label}`}
+          >
+            {language.icon}
+          </button>
         </div>
       </div>
       <Editor

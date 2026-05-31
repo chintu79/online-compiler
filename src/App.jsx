@@ -100,6 +100,7 @@ function App() {
           onChange={(value) => setCode(value || '')}
           editorRef={editorRef}
           settings={settings}
+          onOpenChat={() => setChatOpen(true)}
         />
         <OutputPanel
           output={output}
@@ -108,7 +109,6 @@ function App() {
           executionTime={executionTime}
           isRunning={isRunning}
           onClear={clearOutput}
-          onOpenChat={() => setChatOpen(true)}
         />
       </main>
       <SettingsPanel
