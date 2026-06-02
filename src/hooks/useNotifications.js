@@ -28,7 +28,7 @@ export function useNotifications() {
       // Show browser notification
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('CodeRunner', {
-          body: `${data.user}: ${data.message}`,
+          body: `${data.message}`,
           icon: '/logo.svg',
           badge: '/logo.svg',
           tag: 'coderunner-notification',
