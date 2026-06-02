@@ -11,12 +11,12 @@ export default defineConfig({
       'a7c7-2401-4900-94f9-2ee4-b47c-d03f-c552-a6f1.ngrok-free.app'
     ],
     proxy: {
-      '/api': {
-        target: process.env.VITE_BACKEND_URL || 'http://localhost:3001',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-      },
+    '/api': {
+      target: 'https://online-compiler-9fca.onrender.com',
+      changeOrigin: true,
+      rewrite: (path) => path.replace(/^\/api/, ''),
     },
+  },
   },
 })
 
