@@ -1,7 +1,34 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { LANGUAGE_LIST } from '../constants/languages';
 
-function Header({ language, onLanguageChange, onRun, onStop, isRunning, onSettingsOpen }) {
+function Header({ language, onLanguageChange, onRun, onStop, isRunning, onSettingsOpen, onChatOpen }) {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  const dropdownRef = useRef(null);
+
+  // Detect mobile on resize
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleLanguageSelect = (langId) => {
+    onLanguageChange(langId);
+    setDropdownOpen(false);
+  };
+
   return (
     <header className="header">
       <div className="header-left">
@@ -11,7 +38,48 @@ function Header({ language, onLanguageChange, onRun, onStop, isRunning, onSettin
 
         <div className="divider" />
 
-        <div className="language-selector">
+        {/* Clickable Language Badge - Opens chat on mobile */}
+        <div className="language-dropdown" ref={dropdownRef}>
+          <button
+            className="lang-badge-btn"
+            onClick={() => {
+              if (isMobile) {
+                onChatOpen();
+              } else {
+                setDropdownOpen(!dropdownOpen);
+              }
+            }}
+            disabled={isRunning}
+            title={isMobile ? "Open Chat" : "Change Language"}
+          >
+            <span className="lang-badge">{language.label}</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          
+          {!isMobile && dropdownOpen && (
+            <div className="lang-dropdown-menu">
+              {LANGUAGE_LIST.map((lang) => (
+                <button
+                  key={lang.id}
+                  className={`lang-dropdown-item ${lang.id === language.id ? 'active' : ''}`}
+                  onClick={() => handleLanguageSelect(lang.id)}
+                >
+                  <span className="lang-item-badge">{lang.label}</span>
+                  {lang.id === language.id && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Language Selector (hidden on mobile) */}
+        <div className="language-selector desktop-only">
           <label htmlFor="language-select" className="selector-label">Language:</label>
           <div className="select-wrapper">
             <select

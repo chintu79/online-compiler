@@ -107,6 +107,12 @@ All state lives in `App.jsx` — no external state library. Key state:
 ### Change the MQTT chat topic
 - Edit `CHAT_TOPIC` constant at the top of `src/components/ChatPanel.jsx`
 
+### Send notifications to other users
+- Use the `/notify` command in the ChatPanel: `/notify Your message here`
+- This sends a notification message to all other users connected to the same MQTT topic
+- Notifications appear with a purple `[NOTIFY]` label in the trace logs
+- Example: `/notify Hey! its time to solve your DSA question`
+
 ### Change font size limits
 - Update in **three** places:
   1. `src/components/SettingsPanel.jsx` — `Math.max`/`Math.min` in buttons + `min`/`max` on slider

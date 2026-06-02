@@ -6,6 +6,7 @@ import SettingsPanel from './components/SettingsPanel';
 import ChatPanel from './components/ChatPanel';
 import { LANGUAGES, DEFAULT_LANGUAGE } from './constants/languages';
 import { useCodeRunner } from './hooks/useCodeRunner';
+import { useNotifications } from './hooks/useNotifications';
 
 const DEFAULT_SETTINGS = {
   fontSize: 15,
@@ -23,6 +24,7 @@ function App() {
   const [stdin, setStdin] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
   const [settings, setSettings] = useState(() => {
     // Load settings from localStorage
     try {
@@ -33,9 +35,17 @@ function App() {
     }
   });
   const editorRef = useRef(null);
+  const { sendNotification } = useNotifications();
 
   const language = LANGUAGES[languageId];
   const { output, isRunning, executionTime, runCode, stopCode, clearOutput } = useCodeRunner();
+
+  // Detect mobile on resize
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Save settings to localStorage
   useEffect(() => {
@@ -43,6 +53,13 @@ function App() {
       localStorage.setItem('coderunner-settings', JSON.stringify(settings));
     } catch {}
   }, [settings]);
+
+  // Request notification permission on app load
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
 
   const handleRun = useCallback(() => {
     const currentCode = editorRef.current ? editorRef.current.getValue() : code;
@@ -83,6 +100,17 @@ function App() {
     return () => window.removeEventListener('change-font-size', handler);
   }, []);
 
+  // ESC to close chat (mobile only - desktop chat is always visible)
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 'Escape' && chatOpen && isMobile) {
+        setChatOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [chatOpen, isMobile]);
+
   return (
     <div className="app">
       <Header
@@ -92,6 +120,7 @@ function App() {
         onStop={handleStop}
         isRunning={isRunning}
         onSettingsOpen={() => setSettingsOpen(true)}
+        onChatOpen={() => setChatOpen(!chatOpen)}
       />
       <main className="main-content">
         <CodeEditor
@@ -100,7 +129,7 @@ function App() {
           onChange={(value) => setCode(value || '')}
           editorRef={editorRef}
           settings={settings}
-          onOpenChat={() => setChatOpen(true)}
+          onOpenChat={() => setChatOpen(!chatOpen)}
         />
         <OutputPanel
           output={output}
@@ -109,6 +138,8 @@ function App() {
           executionTime={executionTime}
           isRunning={isRunning}
           onClear={clearOutput}
+          chatOpen={chatOpen}
+          onChatToggle={() => setChatOpen(!chatOpen)}
         />
       </main>
       <SettingsPanel
@@ -116,11 +147,12 @@ function App() {
         onSettingsChange={handleSettingsChange}
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+        onSendNotification={sendNotification}
       />
-      <ChatPanel
-        isOpen={chatOpen}
-        onClose={() => setChatOpen(false)}
-      />
+      {/* Mobile chat overlay - only shown on mobile */}
+      {isMobile && (
+        <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} isDrawer={true} />
+      )}
     </div>
   );
 }

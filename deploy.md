@@ -1,86 +1,218 @@
-# 🚀 Deploying WebCompiler to Render
+# 🚀 Deploying CodeRunner to Render
 
-This guide provides step-by-step instructions for deploying the **WebCompiler** application to **Render** as a high-performance, cost-free static site.
-
----
-
-## 📋 Pre-deployment Verification
-
-We verified that the production build compiles perfectly:
-- **Build Tool:** Vite 8 / Rolldown
-- **Output Directory:** `dist`
-- **Verification Command:** `npm run build` (Executed successfully with no errors)
+This guide provides step-by-step instructions for deploying the **CodeRunner** application to **Render** with backend support for offline push notifications.
 
 ---
 
-## ⚡ Deployment Steps on Render
+## 📋 Architecture
 
-### Step 1: Push Code to GitHub / GitLab
-Render connects directly to your Git repository to automatically build and deploy changes on every push.
-1. Create a new repository on GitHub (e.g., `webcompiler`).
-2. Push your local repository to GitHub:
-   ```bash
-   git remote add origin https://github.com/yourusername/webcompiler.git
-   git branch -M main
-   git push -u origin main
-   ```
+- **Frontend:** React + Vite (Static Site on Render)
+- **Backend:** Node.js/Express (Web Service on Render)
+- **Push Notifications:** Web Push API + Service Workers (works offline)
 
 ---
 
-### Step 2: Create a New Static Site on Render
-1. Log in to the [Render Dashboard](https://dashboard.render.com).
-2. Click the **New +** button in the top right corner.
-3. Select **Static Site** from the dropdown menu.
-4. Connect your GitHub or GitLab account and choose the repository you pushed in Step 1.
+## 🔑 Step 1: Generate VAPID Keys (Do This First)
+
+Push notifications require VAPID keys. Generate them locally:
+
+```bash
+cd backend
+npx web-push generate-vapid-keys
+```
+
+**Output example:**
+```
+Public Key: BEl62iUgtiMm9lahLbiQa7vlS9V5ilOBXQjlvS2StdM3awVTj8NvtzijWStoRgKygTHzvDOAoxMMQgiglMpg8HE=
+Private Key: 3LvwgobkwHsBAjvDUcEODRG-S-_vNCRj_Mcdno6ht-o
+```
+
+⚠️ **Save these safely** — you'll need the private key in Step 5.
 
 ---
 
-### Step 3: Configure Build and Deploy Settings
-In the configuration screen, fill in the following details:
+## 📚 Step 2: Push Code to GitHub
 
-| Setting | Value | Description |
-| :--- | :--- | :--- |
-| **Name** | `webcompiler` | Name of your deployment instance |
-| **Region** | *Select closest region* | Server location for optimal latency |
-| **Branch** | `main` | The production Git branch to build from |
-| **Build Command** | `npm run build` | Compiles the React + Vite source code |
-| **Publish Directory** | `dist` | The folder containing the production assets |
+```bash
+git remote add origin https://github.com/yourusername/java-code-editor.git
+git branch -M main
+git push -u origin main
+```
 
 ---
 
-### Step 4: Configure SPA Redirect Rules (CRITICAL)
-Vite builds a Single Page Application (SPA). To prevent potential `404 Not Found` errors when refreshing the page or visiting deep URLs, you must configure a redirect rule:
-1. Inside your Render Static Site page, navigate to **Redirects/Rewrites** in the left sidebar.
-2. Click **Add Rule**.
-3. Use the following values:
+## 🖥️ Step 3: Deploy Backend Service (Create First)
+
+The backend must be deployed first so you can get its URL.
+
+### 3.1 Create Web Service on Render
+
+1. Go to [render.com](https://dashboard.render.com)
+2. Click **New +** → **Web Service**
+3. Connect your GitHub repository
+4. Fill in the configuration:
+
+| Setting | Value |
+|---------|-------|
+| **Name** | `coderunner-backend` |
+| **Region** | *Select closest region* |
+| **Branch** | `main` |
+| **Runtime** | Node |
+| **Build Command** | `cd backend && npm install` |
+| **Start Command** | `cd backend && npm start` |
+
+### 3.2 Add Environment Variables
+
+In the Render dashboard for your backend service:
+
+1. Navigate to **Environment** section
+2. Click **Add Environment Variable**
+3. Add:
+   - **Key:** `VAPID_PRIVATE_KEY`
+   - **Value:** *(paste your private key from Step 1)*
+
+### 3.3 Deploy Backend
+
+Click **Create Web Service**. Wait for deployment to complete.
+
+**Save the backend URL** — you'll see something like:
+```
+https://coderunner-backend.onrender.com
+```
+
+---
+
+## 🎨 Step 4: Deploy Frontend Static Site
+
+### 4.1 Create Static Site on Render
+
+1. Click **New +** → **Static Site**
+2. Connect your GitHub repository
+3. Fill in the configuration:
+
+| Setting | Value |
+|---------|-------|
+| **Name** | `coderunner-frontend` |
+| **Region** | *Select closest region* |
+| **Branch** | `main` |
+| **Build Command** | `npm run build` |
+| **Publish Directory** | `dist` |
+
+### 4.2 Add Environment Variables
+
+In the Render dashboard for your frontend static site:
+
+1. Navigate to **Environment** section
+2. Click **Add Environment Variable**
+3. Add:
+   - **Key:** `VITE_BACKEND_URL`
+   - **Value:** *(paste your backend URL from Step 3.3, e.g., `https://coderunner-backend.onrender.com`)*
+
+### 4.3 Configure SPA Redirect (CRITICAL)
+
+1. Go to **Redirects/Rewrites** in the left sidebar
+2. Click **Add Rule**
+3. Configure:
    - **Source:** `/*`
    - **Destination:** `/index.html`
    - **Action:** `Rewrite`
-4. Click **Save Changes**.
+4. Click **Save Changes**
+
+### 4.4 Deploy Frontend
+
+Click **Create Static Site**. Wait for deployment to complete.
+
+Your app will be live at:
+```
+https://coderunner-frontend-xxxx.onrender.com
+```
 
 ---
 
-### Step 5: Trigger Deploy
-- Click **Create Static Site** (or wait for the automatic build to finish).
-- In a few seconds, the logs will show `Build successful` and your app will be live at a custom URL (e.g., `https://webcompiler-xxxx.onrender.com`).
+## ✅ Step 5: Verify Deployment
+
+1. Visit your frontend URL
+2. Open ChatPanel (click on "Input" label)
+3. Allow notifications when prompted
+4. Test `/notify Hello from production!`
+5. Open in another browser/device to verify offline notifications work
 
 ---
 
-## 🔒 Security & Backend Reliability Details
+## 🔒 Security & Infrastructure
 
-- **Remote Compiler:** Uses the public, unauthenticated **Wandbox API**. It makes outgoing HTTPS client-side requests (`https://wandbox.org/api/compile.json`), which works fully on Render Static Sites without needing a custom proxy.
-- **Diagnostics Chat (Stealth UI):** Uses the public, secure **EMQX MQTT Broker** (`wss://broker.emqx.io:8084/mqtt`). WebSockets are established client-side over SSL (`wss://`), meaning there are zero CORS conflicts, certificate issues, or backend deployment blockages.
-- **Local Settings:** Editor preferences (font size, theme, etc.) are stored strictly client-side using `localStorage`.
+| Component | Service | Notes |
+|-----------|---------|-------|
+| **Frontend** | Render Static Site | SPA with client-side routing |
+| **Backend** | Render Web Service | Node.js + web-push for notifications |
+| **Code Compilation** | Wandbox API | Public, client-side API calls |
+| **Chat** | EMQX MQTT Broker | Secure WebSockets (`wss://`) |
+| **Settings** | Browser localStorage | Client-side only |
+| **Notifications** | Web Push API | Service Workers handle offline delivery |
 
 ---
 
-## 🛠️ Local Build Testing
-If you ever want to build and test the production-ready bundle locally before pushing to Render:
+## 🛠️ Local Testing
+
+### Build Frontend Locally
+
 ```bash
-# Build the application
 npm run build
-
-# Preview the built application locally
 npm run preview
 ```
-This serves the production files in the `dist` folder at `http://localhost:4173/` exactly as they will be served on Render.
+
+Serves at `http://localhost:4173/`
+
+### Run Backend Locally
+
+```bash
+cd backend
+npm install
+cp .env.example .env
+# Edit .env and add your VAPID_PRIVATE_KEY
+npm run dev
+```
+
+Backend runs on `http://localhost:3001`
+
+### Test Frontend with Local Backend
+
+Edit `.env` in root:
+```
+VITE_BACKEND_URL=http://localhost:3001
+```
+
+Then run:
+```bash
+npm run dev
+```
+
+---
+
+## 📝 Troubleshooting
+
+### Notifications not working?
+- Verify `VAPID_PRIVATE_KEY` is set in backend environment
+- Check browser console for errors
+- Ensure notifications are enabled in browser settings
+
+### Backend not responding?
+- Check Render backend service logs
+- Verify environment variable is set correctly
+- Test with: `curl https://your-backend.onrender.com/api/health`
+
+### Frontend not finding backend?
+- Verify `VITE_BACKEND_URL` is set in frontend environment
+- Redeploy frontend after setting the variable
+- Check browser Network tab to see proxy requests
+
+---
+
+## 🚀 Future Improvements
+
+For production, consider:
+- Add database (MongoDB, PostgreSQL) for persistent subscriptions
+- Implement user authentication
+- Add analytics and monitoring
+- Set up automated backups
+

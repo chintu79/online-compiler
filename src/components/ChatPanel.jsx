@@ -5,7 +5,7 @@ import mqtt from 'mqtt';
 const BROKER_URL = 'wss://broker.emqx.io:8084/mqtt';
 const CHAT_TOPIC = 'coderunner/diag/trace/c4a7e9';
 
-function ChatPanel({ isOpen, onClose }) {
+function ChatPanel({ isOpen, onClose, isDrawer = false, embedded = false }) {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [username, setUsername] = useState(() => {
@@ -36,16 +36,29 @@ function ChatPanel({ isOpen, onClose }) {
     }
   }, []);
 
-  // Escape key handler
+  // Escape key handler (only for non-embedded mode)
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || embedded) return;
     const handleKey = (e) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKey);
     setTimeout(() => inputRef.current?.focus(), 100);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, embedded]);
+
+  // Request notification permission on open
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then((permission) => {
+        if (permission === 'granted') {
+          addLog('INFO', 'system', 'Notifications enabled.');
+        }
+      });
+    }
+  }, [isOpen, addLog]);
 
   // MQTT connection lifecycle
   useEffect(() => {
@@ -78,7 +91,21 @@ function ChatPanel({ isOpen, onClose }) {
         const data = JSON.parse(payload.toString());
         // Ignore own messages (we already show them locally)
         if (data._cid === clientIdRef.current) return;
-        if (data.user && data.payload) {
+        if (data.type === 'notification') {
+          // Display notification messages with special styling
+          addLog('NOTIFY', 'notification', `${data.payload}`);
+          // Send native push notification
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('CodeRunner Notification', {
+              body: `${data.payload}`,
+              icon: '/logo.svg',
+              badge: '/logo.svg',
+              tag: 'coderunner-notification',
+              requireInteraction: true,
+              vibrate: [200, 100, 200],
+            });
+          }
+        } else if (data.user && data.payload) {
           addLog('DEBUG', 'trace_rx', `{ "user": "${data.user}", "payload": ${JSON.stringify(data.payload)} }`);
         }
       } catch {
@@ -128,8 +155,30 @@ function ChatPanel({ isOpen, onClose }) {
         addLog('INFO', 'system', 'Logs cleared.');
       } else if (cmd === '/quit') {
         onClose();
+      } else if (cmd === '/notify' && parts[1]) {
+        // Send notification to other users via backend
+        const notificationMsg = parts.slice(1).join(' ').trim();
+        if (clientRef.current && clientRef.current.connected) {
+          clientRef.current.publish(
+            CHAT_TOPIC,
+            JSON.stringify({ user: username, payload: notificationMsg, type: 'notification', _cid: clientIdRef.current }),
+            { qos: 0 }
+          );
+        }
+        // Also send to backend for push notifications
+        fetch('/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user: username,
+            message: notificationMsg
+          }),
+        }).catch(() => {
+          // Backend error is non-fatal
+        });
+        addLog('INFO', 'notification', `📢 Notification sent: ${notificationMsg}`);
       } else if (cmd === '/help') {
-        addLog('INFO', 'help', 'Available parameters: /nick [name], /clear, /quit, /help');
+        addLog('INFO', 'help', 'Available parameters: /nick [name], /notify [message], /clear, /quit, /help');
       } else {
         addLog('ERROR', 'system', `Unknown debugger parameter: ${cmd}`);
       }
@@ -142,7 +191,7 @@ function ChatPanel({ isOpen, onClose }) {
           { qos: 0 }
         );
       }
-      addLog('DEBUG', 'trace_tx', `{ "user": "${username}", "event": "msg_sent", "payload": ${JSON.stringify(val)} }`);
+      addLog('DEBUG', 'trace_tx', `{ "user": "${username}", "payload": ${JSON.stringify(val)} }`);
     }
 
     setInputValue('');
@@ -150,6 +199,93 @@ function ChatPanel({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
+  // Embedded mode (for desktop - no overlay, just the chat content)
+  if (embedded) {
+    return (
+      <div className="chat-body font-mono" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className="terminal-logs" style={{ flex: 1, overflowY: 'auto', padding: '12px', fontFamily: 'var(--font-mono)', fontSize: '11px', lineHeight: '1.5' }}>
+          {messages.map((m, idx) => (
+            <div key={idx} className={`log-line level-${m.level.toLowerCase()}`}>
+              <span className="log-time">[{m.time}]</span>{' '}
+              <span className="log-level">[{m.level}]</span>{' '}
+              <span className="log-module">{m.module}:</span>{' '}
+              <span className="log-text">{m.text}</span>
+            </div>
+          ))}
+          <div ref={chatEndRef} />
+        </div>
+        <div className="terminal-prompt">
+          <span className="prompt-symbol">pdb </span>
+          <input
+            ref={inputRef}
+            type="text"
+            className="prompt-input"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleCommand}
+            placeholder="type message or /help..."
+            spellCheck={false}
+            autoComplete="off"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Drawer mode (slides from side - for mobile)
+  if (isDrawer) {
+    return (
+      <>
+        <div className="chat-overlay" onClick={onClose} />
+        <div className="chat-panel terminal-theme">
+          <div className="chat-header">
+            <div className="chat-title font-mono">
+              <span className={`terminal-dot ${isConnected ? 'green' : 'red'}`} />
+              <span>diagnostics.log — Trace Viewer</span>
+            </div>
+            <div className="chat-header-actions">
+              <span className="escape-hint">ESC to exit</span>
+              <button className="chat-close-btn" onClick={onClose} title="Close Diagnostics">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div className="chat-body font-mono">
+            <div className="terminal-logs">
+              {messages.map((m, idx) => (
+                <div key={idx} className={`log-line level-${m.level.toLowerCase()}`}>
+                  <span className="log-time">[{m.time}]</span>{' '}
+                  <span className="log-level">[{m.level}]</span>{' '}
+                  <span className="log-module">{m.module}:</span>{' '}
+                  <span className="log-text">{m.text}</span>
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+            <div className="terminal-prompt">
+              <span className="prompt-symbol">pdb </span>
+              <input
+                ref={inputRef}
+                type="text"
+                className="prompt-input"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleCommand}
+                placeholder="type message or /help..."
+                spellCheck={false}
+                autoComplete="off"
+              />
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Overlay mode (original full-screen chat)
   return (
     <>
       <div className="chat-overlay" onClick={onClose} />
@@ -182,7 +318,7 @@ function ChatPanel({ isOpen, onClose }) {
             <div ref={chatEndRef} />
           </div>
           <div className="terminal-prompt">
-            <span className="prompt-symbol">pdb&gt;</span>
+            <span className="prompt-symbol">pdb </span>
             <input
               ref={inputRef}
               type="text"
